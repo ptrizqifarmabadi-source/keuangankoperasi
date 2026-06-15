@@ -126,7 +126,368 @@ export function exportToExcel(transactions: Transaction[], title: string = 'Lapo
  * Generates sample initial transactions so the app doesn't present a completely barren dashboard
  */
 export function getSampleTransactions(): Transaction[] {
-  return [];
+  return [
+    {
+      id: "SK-001",
+      date: "2026-06-02",
+      type: "masuk",
+      amount: 667000,
+      category: "Setoran Shift Sore",
+      description: "Setoran Shift Sore",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-02").getTime() + 1
+    },
+    {
+      id: "SK-002",
+      date: "2026-06-02",
+      type: "masuk",
+      amount: 1319000,
+      category: "Setoran Shift Sore",
+      description: "Setoran Shift Sore",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-02").getTime() + 2
+    },
+    {
+      id: "SK-003",
+      date: "2026-06-02",
+      type: "keluar",
+      amount: 420000,
+      category: "Setoran Shift Sore",
+      description: "Tukaran dan Tarik tunai siswa",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-02").getTime() + 3
+    },
+    {
+      id: "SK-004",
+      date: "2026-06-02",
+      type: "keluar",
+      amount: 112000,
+      category: "Setoran Shift Sore",
+      description: "Tukaran dan Tarik tunai siswa",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-02").getTime() + 4
+    },
+    {
+      id: "SK-005",
+      date: "2026-06-03",
+      type: "masuk",
+      amount: 278000,
+      category: "Setoran Shift Sore",
+      description: "Setoran Shift Sore",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-03").getTime() + 1
+    },
+    {
+      id: "SK-006",
+      date: "2026-06-03",
+      type: "masuk",
+      amount: 342000,
+      category: "Setoran Shift Sore",
+      description: "Setoran Shift Sore",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-03").getTime() + 2
+    },
+    {
+      id: "SK-007",
+      date: "2026-06-03",
+      type: "keluar",
+      amount: 0,
+      category: "Setoran Shift Sore",
+      description: "Tukaran dan Tarik tunai siswa",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-03").getTime() + 3
+    },
+    {
+      id: "SK-008",
+      date: "2026-06-03",
+      type: "keluar",
+      amount: 100000,
+      category: "Setoran Shift Sore",
+      description: "Tukaran dan Tarik tunai siswa",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-03").getTime() + 4
+    },
+    {
+      id: "SK-009",
+      date: "2026-06-04",
+      type: "masuk",
+      amount: 292000,
+      category: "Setoran Shift Sore",
+      description: "Setoran Shift Sore",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-04").getTime() + 1
+    },
+    {
+      id: "SK-010",
+      date: "2026-06-04",
+      type: "masuk",
+      amount: 292000,
+      category: "Setoran Shift Sore",
+      description: "Setoran Shift Sore",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-04").getTime() + 2
+    },
+    {
+      id: "SK-011",
+      date: "2026-06-04",
+      type: "keluar",
+      amount: 0,
+      category: "Setoran Shift Sore",
+      description: "Tukaran dan Tarik tunai siswa",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-04").getTime() + 3
+    },
+    {
+      id: "SK-012",
+      date: "2026-06-04",
+      type: "keluar",
+      amount: 200000,
+      category: "Setoran Shift Sore",
+      description: "Tukaran dan Tarik tunai siswa",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-04").getTime() + 4
+    },
+    {
+      id: "SK-013",
+      date: "2026-06-05",
+      type: "masuk",
+      amount: 520000,
+      category: "Setoran Shift Sore",
+      description: "Setoran Shift Sore",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-05").getTime() + 1
+    },
+    {
+      id: "SK-014",
+      date: "2026-06-05",
+      type: "masuk",
+      amount: 589000,
+      category: "Setoran Shift Sore",
+      description: "Setoran Shift Sore",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-05").getTime() + 2
+    },
+    {
+      id: "SK-015",
+      date: "2026-06-05",
+      type: "keluar",
+      amount: 1445000,
+      category: "Setoran Shift Sore",
+      description: "Tukaran dan Tarik tunai siswa",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-05").getTime() + 3
+    },
+    {
+      id: "SK-016",
+      date: "2026-06-05",
+      type: "keluar",
+      amount: 675000,
+      category: "Setoran Shift Sore",
+      description: "Tukaran dan Tarik tunai siswa",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-05").getTime() + 4
+    },
+    {
+      id: "SK-017",
+      date: "2026-06-08",
+      type: "masuk",
+      amount: 1736000,
+      category: "Setoran Shift Sore",
+      description: "Setoran Shift Sore",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-08").getTime() + 1
+    },
+    {
+      id: "SK-018",
+      date: "2026-06-08",
+      type: "masuk",
+      amount: 1019000,
+      category: "Setoran Shift Sore",
+      description: "Setoran Shift Sore",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-08").getTime() + 2
+    },
+    {
+      id: "SK-019",
+      date: "2026-06-08",
+      type: "keluar",
+      amount: 120000,
+      category: "Setoran Shift Sore",
+      description: "Tukaran dan Tarik tunai siswa",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-08").getTime() + 3
+    },
+    {
+      id: "SK-020",
+      date: "2026-06-08",
+      type: "keluar",
+      amount: 500000,
+      category: "Setoran Shift Sore",
+      description: "Tukaran dan Tarik tunai siswa",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-08").getTime() + 4
+    },
+    {
+      id: "SK-021",
+      date: "2026-06-09",
+      type: "masuk",
+      amount: 810000,
+      category: "Setoran Shift Sore",
+      description: "Setoran Shift Sore",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-09").getTime() + 1
+    },
+    {
+      id: "SK-022",
+      date: "2026-06-09",
+      type: "masuk",
+      amount: 855000,
+      category: "Setoran Shift Sore",
+      description: "Setoran Shift Sore",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-09").getTime() + 2
+    },
+    {
+      id: "SK-023",
+      date: "2026-06-09",
+      type: "keluar",
+      amount: 500000,
+      category: "Setoran Shift Sore",
+      description: "Tukaran dan Tarik tunai siswa",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-09").getTime() + 3
+    },
+    {
+      id: "SK-024",
+      date: "2026-06-09",
+      type: "keluar",
+      amount: 350000,
+      category: "Setoran Shift Sore",
+      description: "Tukaran dan Tarik tunai siswa",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-09").getTime() + 4
+    },
+    {
+      id: "SK-025",
+      date: "2026-06-10",
+      type: "masuk",
+      amount: 450000,
+      category: "Setoran Shift Sore",
+      description: "Setoran Shift Sore",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-10").getTime() + 1
+    },
+    {
+      id: "SK-026",
+      date: "2026-06-10",
+      type: "masuk",
+      amount: 652000,
+      category: "Setoran Shift Sore",
+      description: "Setoran Shift Sore",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-10").getTime() + 2
+    },
+    {
+      id: "SK-027",
+      date: "2026-06-10",
+      type: "keluar",
+      amount: 0,
+      category: "Setoran Shift Sore",
+      description: "Tukaran dan Tarik tunai siswa",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-10").getTime() + 3
+    },
+    {
+      id: "SK-028",
+      date: "2026-06-10",
+      type: "keluar",
+      amount: 0,
+      category: "Setoran Shift Sore",
+      description: "Tukaran dan Tarik tunai siswa",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-10").getTime() + 4
+    },
+    {
+      id: "SK-029",
+      date: "2026-06-11",
+      type: "masuk",
+      amount: 210000,
+      category: "Setoran Shift Sore",
+      description: "Setoran Shift Sore",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-11").getTime() + 1
+    },
+    {
+      id: "SK-030",
+      date: "2026-06-11",
+      type: "masuk",
+      amount: 0,
+      category: "Setoran Shift Sore",
+      description: "Setoran Shift Sore",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-11").getTime() + 2
+    },
+    {
+      id: "SK-031",
+      date: "2026-06-11",
+      type: "keluar",
+      amount: 0,
+      category: "Setoran Shift Sore",
+      description: "Tukaran dan Tarik tunai siswa",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-11").getTime() + 3
+    },
+    {
+      id: "SK-032",
+      date: "2026-06-11",
+      type: "keluar",
+      amount: 0,
+      category: "Setoran Shift Sore",
+      description: "Tukaran dan Tarik tunai siswa",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-11").getTime() + 4
+    },
+    {
+      id: "SK-033",
+      date: "2026-06-12",
+      type: "masuk",
+      amount: 426000,
+      category: "Setoran Shift Sore",
+      description: "Setoran Shift Sore",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-12").getTime() + 1
+    },
+    {
+      id: "SK-034",
+      date: "2026-06-12",
+      type: "masuk",
+      amount: 1052000,
+      category: "Setoran Shift Sore",
+      description: "Setoran Shift Sore",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-12").getTime() + 2
+    },
+    {
+      id: "SK-035",
+      date: "2026-06-12",
+      type: "keluar",
+      amount: 2770000,
+      category: "Setoran Shift Sore",
+      description: "Tukaran dan Tarik tunai siswa",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-12").getTime() + 3
+    },
+    {
+      id: "SK-036",
+      date: "2026-06-12",
+      type: "keluar",
+      amount: 500000,
+      category: "Setoran Shift Sore",
+      description: "Tukaran dan Tarik tunai siswa",
+      recordedBy: "Kasir Sore",
+      timestamp: new Date("2026-06-12").getTime() + 4
+    }
+  ];
 }
 
 /**

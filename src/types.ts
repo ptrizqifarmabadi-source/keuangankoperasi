@@ -26,6 +26,8 @@ export interface SummaryStats {
   weeklyIncome: number; // current week's total income
   monthlyExpense: number;
   monthlyIncome: number;
+  todayIncome: number;
+  todayExpense: number;
 }
 
 export const INCOME_CATEGORIES = [

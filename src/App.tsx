@@ -44,7 +44,7 @@ export default function App() {
   // Main transactions database state
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     try {
-      const saved = localStorage.getItem('setoran_kasir_cendekia_transactions');
+      const saved = localStorage.getItem('setoran_kasir_cendekia_transactions_v2');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -61,7 +61,7 @@ export default function App() {
   // Keep localStorage in sync of all writes
   useEffect(() => {
     try {
-      localStorage.setItem('setoran_kasir_cendekia_transactions', JSON.stringify(transactions));
+      localStorage.setItem('setoran_kasir_cendekia_transactions_v2', JSON.stringify(transactions));
     } catch (e) {
       console.error('Error saving transactions to localStorage:', e);
     }
@@ -75,6 +75,8 @@ export default function App() {
     let weeklyExpense = 0;
     let monthlyIncome = 0;
     let monthlyExpense = 0;
+    let todayIncome = 0;
+    let todayExpense = 0;
 
     const todayStr = new Date().toISOString().split('T')[0];
     const currentYearMonth = todayStr.substring(0, 7); // YYYY-MM
@@ -89,6 +91,9 @@ export default function App() {
         if (t.date.startsWith(currentYearMonth)) {
           monthlyIncome += t.amount;
         }
+        if (t.date === todayStr) {
+          todayIncome += t.amount;
+        }
       } else if (t.type === 'keluar') {
         totalExpense += t.amount;
         if (isWithinCurrentWeek(t.date, now)) {
@@ -96,6 +101,9 @@ export default function App() {
         }
         if (t.date.startsWith(currentYearMonth)) {
           monthlyExpense += t.amount;
+        }
+        if (t.date === todayStr) {
+          todayExpense += t.amount;
         }
       }
     });
@@ -110,6 +118,8 @@ export default function App() {
       weeklyIncome,
       monthlyExpense,
       monthlyIncome,
+      todayIncome,
+      todayExpense,
     };
   }, [transactions]);
 
