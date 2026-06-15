@@ -21,6 +21,8 @@ import {
   Settings
 } from 'lucide-react';
 import { MEMBER_LIST } from '../types';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 interface LoginProps {
   onLoginSuccess: (role: 'admin' | 'kasir' | 'anggota', cashierName: string) => void;
@@ -84,12 +86,6 @@ export function Login({ onLoginSuccess }: LoginProps) {
     e.preventDefault();
     setError(null);
 
-    const name = cashierNameInput.trim();
-    if (!name) {
-      setError('Nama Petugas Kasir wajib diisi demi transparansi SHU.');
-      return;
-    }
-
     if (!cashierPassword) {
       setError('Kata Sandi Kasir wajib diisi.');
       return;
@@ -113,12 +109,12 @@ export function Login({ onLoginSuccess }: LoginProps) {
       }
 
       setIsLoading(false);
-      const genderDisplay = type === 'ikhwan' ? 'Ikhwan' : 'Akhwat';
-      onLoginSuccess('kasir', `${name} (${genderDisplay})`);
+      const name = type === 'ikhwan' ? 'Kasir Ikhwan' : 'Kasir Akhwat';
+      onLoginSuccess('kasir', name);
     }, 700);
   };
 
-  const handleAnggotaSubmit = (e: React.FormEvent) => {
+  const handleAnggotaSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -134,19 +130,12 @@ export function Login({ onLoginSuccess }: LoginProps) {
 
     setIsLoading(true);
 
-    setTimeout(() => {
-      // Look up password override from localStorage
-      const passwordOverridesStr = localStorage.getItem('setoran_kasir_cendekia_member_passwords');
+    try {
+      // Look up password override from Firestore
+      const memberPassDoc = await getDoc(doc(db, 'member_passwords', anggotaName));
       let correctPassword = '12345678';
-      if (passwordOverridesStr) {
-        try {
-          const overrides = JSON.parse(passwordOverridesStr);
-          if (overrides[anggotaName]) {
-            correctPassword = overrides[anggotaName];
-          }
-        } catch (err) {
-          console.error(err);
-        }
+      if (memberPassDoc.exists()) {
+        correctPassword = memberPassDoc.data().password;
       }
 
       if (anggotaPassword === correctPassword) {
@@ -156,10 +145,14 @@ export function Login({ onLoginSuccess }: LoginProps) {
         setError('Kata Sandi salah! Kata sandi default adalah 12345678.');
         setIsLoading(false);
       }
-    }, 600);
+    } catch (err) {
+      console.error(err);
+      setError('Gagal memverifikasi sandi dari cloud database.');
+      setIsLoading(false);
+    }
   };
 
-  const handleChangePasswordSubmit = (e: React.FormEvent) => {
+  const handleChangePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setChangeSuccessMessage(null);
@@ -187,20 +180,12 @@ export function Login({ onLoginSuccess }: LoginProps) {
 
     setIsLoading(true);
 
-    setTimeout(() => {
-      // Verify old password
-      const passwordOverridesStr = localStorage.getItem('setoran_kasir_cendekia_member_passwords');
+    try {
+      // Verify old password from Firestore
+      const memberPassDoc = await getDoc(doc(db, 'member_passwords', changeName));
       let correctOldPassword = '12345678';
-      let overrides: Record<string, string> = {};
-      if (passwordOverridesStr) {
-        try {
-          overrides = JSON.parse(passwordOverridesStr);
-          if (overrides[changeName]) {
-            correctOldPassword = overrides[changeName];
-          }
-        } catch (err) {
-          console.error(err);
-        }
+      if (memberPassDoc.exists()) {
+        correctOldPassword = memberPassDoc.data().password;
       }
 
       if (oldPassword !== correctOldPassword) {
@@ -209,9 +194,11 @@ export function Login({ onLoginSuccess }: LoginProps) {
         return;
       }
 
-      // Update password
-      overrides[changeName] = newPassword;
-      localStorage.setItem('setoran_kasir_cendekia_member_passwords', JSON.stringify(overrides));
+      // Update password in Firestore
+      await setDoc(doc(db, 'member_passwords', changeName), {
+        anggotaName: changeName,
+        password: newPassword
+      });
 
       setIsLoading(false);
       setChangeSuccessMessage(`Alhamdulillah, kata sandi untuk ${changeName} berhasil diperbarui!`);
@@ -225,7 +212,11 @@ export function Login({ onLoginSuccess }: LoginProps) {
         setAnggotaName(changeName);
         setChangeSuccessMessage(null);
       }, 2000);
-    }, 800);
+    } catch (err) {
+      console.error(err);
+      setError('Gagal memperbarui sandi ke cloud database.');
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -551,28 +542,6 @@ export function Login({ onLoginSuccess }: LoginProps) {
                   <span className="text-[9px] text-slate-400 italic mt-1 block">Sandi standar: @IkhwanCendekia</span>
                 </div>
 
-                <div>
-                  <label htmlFor="ik-name" className="block text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1.5">
-                    Nama Petugas (Ikhwan)
-                  </label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                      <User className="h-4 w-4" />
-                    </span>
-                    <input
-                      id="ik-name"
-                      type="text"
-                      placeholder="Contoh: Abdul Kodir, Ahmad Kamal"
-                      value={cashierNameInput}
-                      onChange={(e) => {
-                        setCashierNameInput(e.target.value);
-                        setError(null);
-                      }}
-                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs focus:outline-hidden focus:border-amber-500 focus:bg-white focus:ring-1 focus:ring-amber-500 transition-all font-semibold"
-                    />
-                  </div>
-                </div>
-
                 {error && (
                   <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl flex items-start gap-2 text-xs text-rose-700">
                     <AlertCircle className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
@@ -662,27 +631,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
                   <span className="text-[9px] text-slate-400 italic mt-1 block">Sandi standar: @AkhwatCendekia</span>
                 </div>
 
-                <div>
-                  <label htmlFor="ak-name" className="block text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1.5">
-                    Nama Petugas (Akhwat)
-                  </label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                      <User className="h-4 w-4" />
-                    </span>
-                    <input
-                      id="ak-name"
-                      type="text"
-                      placeholder="Contoh: Ayu Chairunnisa, Dina Mutia"
-                      value={cashierNameInput}
-                      onChange={(e) => {
-                        setCashierNameInput(e.target.value);
-                        setError(null);
-                      }}
-                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-sky-200 rounded-xl text-slate-800 text-xs focus:outline-hidden focus:border-sky-500 focus:bg-white focus:ring-1 focus:ring-sky-500 transition-all font-semibold"
-                    />
-                  </div>
-                </div>
+
 
                 {error && (
                   <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl flex items-start gap-2 text-xs text-rose-700">

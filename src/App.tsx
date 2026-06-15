@@ -6,6 +6,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Transaction, SummaryStats } from './types';
 import { getSampleTransactions, isWithinCurrentWeek } from './utils';
+import { collection, onSnapshot, query, orderBy, setDoc, doc, deleteDoc, getDoc, getDocs } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType } from './firebase';
 import { DashboardStats } from './components/DashboardStats';
 import { TransactionForm } from './components/TransactionForm';
 import { TransactionTable } from './components/TransactionTable';
@@ -64,7 +66,7 @@ export default function App() {
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
 
-  const handleMemberChangePassword = (e: React.FormEvent) => {
+  const handleMemberChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordError('');
     setPasswordSuccess('');
@@ -74,34 +76,40 @@ export default function App() {
       return;
     }
 
-    // Retrieve customized passwords from localStorage
-    const storedPasswordsJson = localStorage.getItem('setoran_kasir_cendekia_member_passwords');
-    const passwordsObj = storedPasswordsJson ? JSON.parse(storedPasswordsJson) : {};
-    const currentStoredPass = passwordsObj[cashierName] || '12345678';
+    try {
+      // Retrieve customized passwords from Firestore
+      const memberPassDoc = await getDoc(doc(db, 'member_passwords', cashierName));
+      const currentStoredPass = memberPassDoc.exists() ? memberPassDoc.data().password : '12345678';
 
-    if (oldPassword !== currentStoredPass) {
-      setPasswordError('Sandi lama yang Anda masukkan tidak sesuai.');
-      return;
+      if (oldPassword !== currentStoredPass) {
+        setPasswordError('Sandi lama yang Anda masukkan tidak sesuai.');
+        return;
+      }
+
+      if (newPassword.length < 8) {
+        setPasswordError('Sandi baru harus terdiri dari minimal 8 karakter.');
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        setPasswordError('Konfirmasi sandi baru tidak cocok.');
+        return;
+      }
+
+      // Update override in Firestore
+      await setDoc(doc(db, 'member_passwords', cashierName), {
+        anggotaName: cashierName,
+        password: newPassword
+      });
+
+      setPasswordSuccess('Sandi Anda berhasil diperbarui secara aman!');
+      setOldPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      console.error(err);
+      setPasswordError('Gagal memperbarui sandi ke cloud database.');
     }
-
-    if (newPassword.length < 8) {
-      setPasswordError('Sandi baru harus terdiri dari minimal 8 karakter.');
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setPasswordError('Konfirmasi sandi baru tidak cocok.');
-      return;
-    }
-
-    // Update overrides in localStorage
-    passwordsObj[cashierName] = newPassword;
-    localStorage.setItem('setoran_kasir_cendekia_member_passwords', JSON.stringify(passwordsObj));
-
-    setPasswordSuccess('Sandi Anda berhasil diperbarui secara aman!');
-    setOldPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
   };
 
   // Main transactions database state
@@ -129,14 +137,54 @@ export default function App() {
     return getSampleTransactions();
   });
 
-  // Keep localStorage in sync of all writes
+  // Initialize Cloud Firestore Synchronization and Real-time listener
   useEffect(() => {
-    try {
-      localStorage.setItem('setoran_kasir_cendekia_transactions_v2', JSON.stringify(transactions));
-    } catch (e) {
-      console.error('Error saving transactions to localStorage:', e);
+    let active = true;
+
+    async function initCloudSync() {
+      try {
+        const q = query(collection(db, 'transactions'), orderBy('timestamp', 'desc'));
+        const snapshot = await getDocs(q);
+
+        if (snapshot.empty) {
+          // Firestore is empty - seeding with existing/localStorage data for a seamless start
+          const initialData = transactions.length > 0 ? transactions : getSampleTransactions();
+          for (const t of initialData) {
+            await setDoc(doc(db, 'transactions', t.id), t);
+          }
+        }
+      } catch (err) {
+        console.error("Error checking or seeding Firebase transactions:", err);
+      }
     }
-  }, [transactions]);
+
+    initCloudSync();
+
+    // Set up continuous real-time synchronization
+    const q = query(collection(db, 'transactions'), orderBy('timestamp', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const docs: Transaction[] = [];
+      snapshot.forEach((docSnap) => {
+        docs.push(docSnap.data() as Transaction);
+      });
+      if (active) {
+        setTransactions(docs);
+        // Also keep local storage as a quick offline fallback/cache
+        try {
+          localStorage.setItem('setoran_kasir_cendekia_transactions_v2', JSON.stringify(docs));
+        } catch (e) {
+          console.error('Error saving transactions cache:', e);
+        }
+      }
+    }, (error) => {
+      console.error("Firestore real-time subscription error:", error);
+    });
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []); // Run exactly once on mount
 
   // Real-time statistical engine for KAS UTAMA (Excluding employee/member shopping)
   const stats: SummaryStats = useMemo(() => {
@@ -264,7 +312,7 @@ export default function App() {
   }, [transactions, userRole, cashierName]);
 
   // Command action helper: Add transaction
-  const handleAddTransaction = (newTrx: Omit<Transaction, 'id' | 'timestamp'>) => {
+  const handleAddTransaction = async (newTrx: Omit<Transaction, 'id' | 'timestamp'>) => {
     // Generate a beautiful human transaction ID
     const randomSuffix = Math.floor(100 + Math.random() * 900);
     const trxId = `TRX-${Date.now().toString().slice(-4)}${randomSuffix}`;
@@ -275,26 +323,54 @@ export default function App() {
       timestamp: Date.now(),
     };
 
-    setTransactions((prev) => [completedTrx, ...prev]);
+    try {
+      await setDoc(doc(db, 'transactions', trxId), completedTrx);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, `transactions/${trxId}`);
+    }
   };
 
   // Helper action: Process and import parsed CSV records
-  const handleImportCSV = (newTransactions: Transaction[], overwrite: boolean) => {
-    if (overwrite) {
-      setTransactions(newTransactions);
-    } else {
-      setTransactions((prev) => [...newTransactions, ...prev]);
+  const handleImportCSV = async (newTransactions: Transaction[], overwrite: boolean) => {
+    try {
+      if (overwrite) {
+        // Clear existing transactions in Firestore first
+        for (const t of transactions) {
+          await deleteDoc(doc(db, 'transactions', t.id));
+        }
+      }
+      // Save new ones
+      for (const t of newTransactions) {
+        await setDoc(doc(db, 'transactions', t.id), t);
+      }
+    } catch (error) {
+      console.error('Error importing CSV to Firestore:', error);
     }
   };
 
   // Command action helper: Delete transaction
-  const handleDeleteTransaction = (id: string) => {
-    setTransactions((prev) => prev.filter((item) => item.id !== id));
+  const handleDeleteTransaction = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'transactions', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `transactions/${id}`);
+    }
   };
 
   // Utility commands: Reset with sample simulator data
-  const handleResetToSample = () => {
-    setTransactions(getSampleTransactions());
+  const handleResetToSample = async () => {
+    try {
+      // Clear Firestore first to prevent duplicate samples accumulating
+      for (const t of transactions) {
+        await deleteDoc(doc(db, 'transactions', t.id));
+      }
+      const samples = getSampleTransactions();
+      for (const t of samples) {
+        await setDoc(doc(db, 'transactions', t.id), t);
+      }
+    } catch (error) {
+      console.error('Error resetting to sample in Firestore:', error);
+    }
   };
 
   // Backup Database to JSON file download
@@ -319,7 +395,7 @@ export default function App() {
     const file = files[0];
     const reader = new FileReader();
     
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const content = event.target?.result as string;
         const parsed = JSON.parse(content);
@@ -329,8 +405,15 @@ export default function App() {
           const isValid = parsed.every(t => t.id && t.date && t.amount && t.type && t.category);
           if (isValid) {
             if (window.confirm(`Yakin ingin mengimpor ${parsed.length} data setoran? Data Anda saat ini akan ditimpa.`)) {
-              setTransactions(parsed);
-              alert('Berhasil mengimpor database setoran kasir!');
+              // Delete old ones
+              for (const t of transactions) {
+                await deleteDoc(doc(db, 'transactions', t.id)).catch(err => console.error(err));
+              }
+              // Upload new ones
+              for (const t of parsed) {
+                await setDoc(doc(db, 'transactions', t.id), t).catch(err => console.error(err));
+              }
+              alert('Berhasil mengimpor database setoran kasir ke cloud!');
             }
           } else {
             alert('File backup rusak atau tidak kompatibel dengan format setoran kasir.');

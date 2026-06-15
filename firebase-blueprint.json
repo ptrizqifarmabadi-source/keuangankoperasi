@@ -1,0 +1,43 @@
+{
+  "entities": {
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Pencatatan kasir dan belanja anggota",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "type": { "type": "string", "enum": ["masuk", "keluar"] },
+        "amount": { "type": "number" },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "recordedBy": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "photo": { "type": "string" },
+        "trxCategory": { "type": "string", "enum": ["setoran", "belanja_karyawan"] },
+        "anggotaName": { "type": "string" }
+      },
+      "required": ["id", "date", "type", "amount", "category", "description", "timestamp"]
+    },
+    "MemberPassword": {
+      "title": "MemberPassword",
+      "description": "Sandi khusus akun anggota",
+      "type": "object",
+      "properties": {
+        "anggotaName": { "type": "string" },
+        "password": { "type": "string" }
+      },
+      "required": ["anggotaName", "password"]
+    }
+  },
+  "firestore": {
+    "transactions": {
+      "schema": "Transaction",
+      "description": "Daftar pencatatan kasir dan mutasi belanja harian anggota"
+    },
+    "member_passwords": {
+      "schema": "MemberPassword",
+      "description": "Kata sandi kustom dari anggota"
+    }
+  }
+}

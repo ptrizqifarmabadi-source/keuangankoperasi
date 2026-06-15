@@ -1,0 +1,59 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helpers
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidTransaction(data) {
+      return data.keys().hasAll(['id', 'date', 'type', 'amount', 'category', 'description', 'timestamp'])
+        && data.id is string
+        && data.date is string
+        && data.type is string
+        && (data.type == 'masuk' || data.type == 'keluar')
+        && (data.amount is int || data.amount is float)
+        && data.category is string
+        && data.description is string
+        && data.timestamp is int
+        && (!data.keys().contains('recordedBy') || data.recordedBy is string)
+        && (!data.keys().contains('photo') || data.photo is string)
+        && (!data.keys().contains('trxCategory') || (data.trxCategory == 'setoran' || data.trxCategory == 'belanja_karyawan'))
+        && (!data.keys().contains('anggotaName') || data.anggotaName is string);
+    }
+
+    function isValidMemberPassword(data) {
+      return data.keys().hasAll(['anggotaName', 'password'])
+        && data.anggotaName is string
+        && data.password is string
+        && data.password.size() >= 6;
+    }
+
+    // Transactions rules
+    match /transactions/{transactionId} {
+      allow read: if true;
+      allow create, update: if isValidId(transactionId) && isValidTransaction(incoming());
+      allow delete: if isValidId(transactionId);
+    }
+
+    // Member password rules
+    match /member_passwords/{memberId} {
+      allow read: if true;
+      allow create, update: if isValidId(memberId) && isValidMemberPassword(incoming());
+      allow delete: if isValidId(memberId);
+    }
+  }
+}
