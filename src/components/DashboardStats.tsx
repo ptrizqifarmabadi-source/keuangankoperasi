@@ -21,12 +21,19 @@ import { motion } from 'motion/react';
 interface DashboardStatsProps {
   stats: SummaryStats;
   totalTransactionsCount: number;
-  userRole?: 'admin' | 'kasir';
+  userRole?: 'admin' | 'kasir' | 'anggota';
   employeeBelanjaStats?: {
     totalSpent: number;
     transactionCount: number;
     todaySpent: number;
     activeMembersCount: number;
+  };
+  memberStats?: {
+    totalSpent: number;
+    todaySpent: number;
+    weekSpent: number;
+    trxCount: number;
+    memberName: string;
   };
 }
 
@@ -34,10 +41,147 @@ export function DashboardStats({
   stats, 
   totalTransactionsCount, 
   userRole = 'admin',
-  employeeBelanjaStats = { totalSpent: 0, transactionCount: 0, todaySpent: 0, activeMembersCount: 0 }
+  employeeBelanjaStats = { totalSpent: 0, transactionCount: 0, todaySpent: 0, activeMembersCount: 0 },
+  memberStats = { totalSpent: 0, todaySpent: 0, weekSpent: 0, trxCount: 0, memberName: '' }
 }: DashboardStatsProps) {
   const todayNet = stats.todayIncome - stats.todayExpense;
   const weeklyNet = stats.weeklyIncome - stats.weeklyExpense;
+
+  // Render ANGGOTA specialized Member Personal Dashboard (NEW - EXACTLY 4 TAMPILAN SHU METRICS)
+  if (userRole === 'anggota' && memberStats) {
+    const activeLevel = memberStats.totalSpent > 1000000 
+      ? 'Sangat Aktif' 
+      : memberStats.totalSpent > 0 
+        ? 'Aktif Belanja' 
+        : 'Belum Ada SHU';
+    const averageSpent = memberStats.trxCount > 0 
+      ? formatRupiah(memberStats.totalSpent / memberStats.trxCount) 
+      : 'Rp 0';
+
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 select-none font-sans">
+        {/* CARD 1: AKUMULASI BELANJA SHU */}
+        <motion.div 
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="bg-white rounded-2xl border border-rose-100 p-5 flex flex-col justify-between shadow-xs relative overflow-hidden"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] uppercase font-extrabold text-rose-800 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-100 flex items-center gap-1">
+                <Wallet className="h-3.5 w-3.5 text-rose-700" />
+                TOTAL BELANJA (SHU)
+              </span>
+              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Akumulatif</span>
+            </div>
+            <p className="text-slate-400 text-[11px] font-medium leading-relaxed">Seluruh perolehan nilai belanja Anda yang telah tersensus</p>
+          </div>
+          <div className="mt-4">
+            <h3 className="text-2xl font-black text-rose-950 tracking-tight">
+              {formatRupiah(memberStats.totalSpent)}
+            </h3>
+            <div className="mt-2 text-[10px] text-slate-500 font-bold font-mono">
+              Rata-rata: {averageSpent} / trx
+            </div>
+          </div>
+          <div className="absolute -right-6 -bottom-6 text-rose-500/5 pointer-events-none">
+            <Wallet className="w-24 h-24" />
+          </div>
+        </motion.div>
+
+        {/* CARD 2: BELANJA HARI INI */}
+        <motion.div 
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+          className="bg-white rounded-2xl border border-amber-150 p-5 flex flex-col justify-between shadow-xs relative overflow-hidden"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] uppercase font-extrabold text-amber-850 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-100 flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                BELANJA HARI INI
+              </span>
+              <span className="text-[9px] text-amber-600 font-extrabold uppercase">Hari Ini</span>
+            </div>
+            <p className="text-slate-400 text-[11px] font-medium leading-relaxed">Nilai mutasi belanja harian Anda khusus untuk tanggal hari ini</p>
+          </div>
+          <div className="mt-4">
+            <h3 className="text-2xl font-black text-amber-950 tracking-tight">
+              {formatRupiah(memberStats.todaySpent)}
+            </h3>
+            <div className="mt-2 text-[10px] text-slate-500 font-bold font-mono">
+              Status: {memberStats.todaySpent > 0 ? 'Mutasi Harian Terisi' : 'Belum Ada Transaksi'}
+            </div>
+          </div>
+          <div className="absolute -right-6 -bottom-6 text-amber-500/5 pointer-events-none">
+            <Calendar className="w-24 h-24" />
+          </div>
+        </motion.div>
+
+        {/* CARD 3: BELANJA PEKAN INI */}
+        <motion.div 
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
+          className="bg-white rounded-2xl border border-emerald-100 p-5 flex flex-col justify-between shadow-xs relative overflow-hidden"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] uppercase font-extrabold text-emerald-850 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100 flex items-center gap-1">
+                <TrendingUp className="h-3.5 w-3.5 text-emerald-700" />
+                BELANJA PEKAN INI
+              </span>
+              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Siklus</span>
+            </div>
+            <p className="text-slate-400 text-[11px] font-medium leading-relaxed">Akumulasi pengeluaran belanja sepanjang pekan ini (senin s.d minggu)</p>
+          </div>
+          <div className="mt-4">
+            <h3 className="text-2xl font-black text-emerald-950 tracking-tight">
+              {formatRupiah(memberStats.weekSpent)}
+            </h3>
+            <div className="mt-2 text-[10px] text-slate-500 font-bold font-mono">
+              Kontribusi Mandiri Koperasi
+            </div>
+          </div>
+          <div className="absolute -right-6 -bottom-6 text-emerald-500/5 pointer-events-none">
+            <TrendingUp className="w-24 h-24" />
+          </div>
+        </motion.div>
+
+        {/* CARD 4: SESI & STATUS KEAKTIFAN */}
+        <motion.div 
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.3 }}
+          className="bg-white rounded-2xl border border-teal-100 p-5 flex flex-col justify-between shadow-xs relative overflow-hidden"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] uppercase font-extrabold text-teal-850 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-100 flex items-center gap-1">
+                <Sparkles className="h-3.5 w-3.5 text-teal-600" />
+                PARTISIPASI SHU
+              </span>
+              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Keaktifan</span>
+            </div>
+            <p className="text-slate-400 text-[11px] font-medium leading-relaxed">Frekuensi keaktifan belanja berdasarkan banyaknya sesi transaksi</p>
+          </div>
+          <div className="mt-4">
+            <h3 className="text-2xl font-black text-teal-950 tracking-tight">
+              {activeLevel}
+            </h3>
+            <div className="mt-2 text-[10px] text-slate-500 font-bold font-mono">
+              Frekuensi: {memberStats.trxCount} Kali Transaksi
+            </div>
+          </div>
+          <div className="absolute -right-6 -bottom-6 text-teal-500/5 pointer-events-none">
+            <Sparkles className="w-24 h-24" />
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   // Render KASIR specialized Member Belanja Dashboard
   if (userRole === 'kasir') {

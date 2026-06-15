@@ -29,19 +29,19 @@ export default function App() {
   // Session & Authentication states
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
     const token = localStorage.getItem('setoran_kasir_cendekia_auth_token');
-    return token === 'admin' || token === 'kasir';
+    return token === 'admin' || token === 'kasir' || token === 'anggota';
   });
 
-  const [userRole, setUserRole] = useState<'admin' | 'kasir'>(() => {
+  const [userRole, setUserRole] = useState<'admin' | 'kasir' | 'anggota'>(() => {
     const token = localStorage.getItem('setoran_kasir_cendekia_auth_token');
-    return (token === 'admin' || token === 'kasir') ? token as 'admin' | 'kasir' : 'admin';
+    return (token === 'admin' || token === 'kasir' || token === 'anggota') ? token as 'admin' | 'kasir' | 'anggota' : 'admin';
   });
 
   const [cashierName, setCashierName] = useState<string>(() => {
     return localStorage.getItem('setoran_kasir_cendekia_cashier_name') || '';
   });
 
-  const handleLoginSuccess = (role: 'admin' | 'kasir', name: string) => {
+  const handleLoginSuccess = (role: 'admin' | 'kasir' | 'anggota', name: string) => {
     localStorage.setItem('setoran_kasir_cendekia_auth_token', role);
     localStorage.setItem('setoran_kasir_cendekia_cashier_name', name);
     setIsLoggedIn(true);
@@ -55,6 +55,53 @@ export default function App() {
     setIsLoggedIn(false);
     setUserRole('admin');
     setCashierName('');
+  };
+
+  // User dashboard ganti sandi states for Anggota
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+
+  const handleMemberChangePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      setPasswordError('Mohon lengkapi seluruh kolom input sandi.');
+      return;
+    }
+
+    // Retrieve customized passwords from localStorage
+    const storedPasswordsJson = localStorage.getItem('setoran_kasir_cendekia_member_passwords');
+    const passwordsObj = storedPasswordsJson ? JSON.parse(storedPasswordsJson) : {};
+    const currentStoredPass = passwordsObj[cashierName] || '12345678';
+
+    if (oldPassword !== currentStoredPass) {
+      setPasswordError('Sandi lama yang Anda masukkan tidak sesuai.');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setPasswordError('Sandi baru harus terdiri dari minimal 8 karakter.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Konfirmasi sandi baru tidak cocok.');
+      return;
+    }
+
+    // Update overrides in localStorage
+    passwordsObj[cashierName] = newPassword;
+    localStorage.setItem('setoran_kasir_cendekia_member_passwords', JSON.stringify(passwordsObj));
+
+    setPasswordSuccess('Sandi Anda berhasil diperbarui secara aman!');
+    setOldPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
   };
 
   // Main transactions database state
@@ -181,6 +228,40 @@ export default function App() {
       activeMembersCount: activeNamesSet.size
     };
   }, [transactions]);
+
+  // Real-time personal member statistics engine (4 metrics calculation)
+  const memberStats = useMemo(() => {
+    if (userRole !== 'anggota' || !cashierName) {
+      return { totalSpent: 0, todaySpent: 0, weekSpent: 0, trxCount: 0, memberName: '' };
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const memberTransactions = transactions.filter(
+      (t) => t.trxCategory === 'belanja_karyawan' && t.anggotaName === cashierName
+    );
+
+    let totalSpent = 0;
+    let todaySpent = 0;
+    let weekSpent = 0;
+
+    memberTransactions.forEach((t) => {
+      totalSpent += t.amount;
+      if (t.date === todayStr) {
+        todaySpent += t.amount;
+      }
+      if (isWithinCurrentWeek(t.date, new Date())) {
+        weekSpent += t.amount;
+      }
+    });
+
+    return {
+      totalSpent,
+      todaySpent,
+      weekSpent,
+      trxCount: memberTransactions.length,
+      memberName: cashierName
+    };
+  }, [transactions, userRole, cashierName]);
 
   // Command action helper: Add transaction
   const handleAddTransaction = (newTrx: Omit<Transaction, 'id' | 'timestamp'>) => {
@@ -330,10 +411,15 @@ export default function App() {
                 <span className="h-1 w-1 rounded-full bg-emerald-400 animate-pulse" />
                 Sesi Admin
               </span>
-            ) : (
+            ) : userRole === 'kasir' ? (
               <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-amber-500/20 text-[9px] font-extrabold text-amber-300 rounded-md border border-amber-500/25">
                 <span className="h-1 w-1 rounded-full bg-amber-400 animate-pulse" />
                 Sesi Kasir
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-rose-500/20 text-[9px] font-extrabold text-rose-300 rounded-md border border-rose-500/25">
+                <span className="h-1 w-1 rounded-full bg-rose-400 animate-pulse" />
+                Sesi Anggota SHU
               </span>
             )}
           </div>
@@ -357,8 +443,14 @@ export default function App() {
         {/* MAIN MODULE HEADER */}
         <header className="bg-white border-b border-slate-200 px-6 sm:px-8 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
           <div>
-            <h2 className="text-lg font-bold text-slate-800 font-sans tracking-tight">Rekap Setoran Kasir ke Bendahara</h2>
-            <p className="text-slate-400 text-xs font-medium">Pencatatan Handover Harian Kasir Utama ke Bendahara Koperasi</p>
+            <h2 className="text-lg font-bold text-slate-800 font-sans tracking-tight">
+              {userRole === 'anggota' ? `Buku Sensus Belanja Koperasi • ${cashierName}` : 'Rekap Setoran Kasir ke Bendahara'}
+            </h2>
+            <p className="text-slate-400 text-xs font-medium">
+              {userRole === 'anggota' 
+                ? 'Mutasi pencatatan pembelanjaan pribadi harian Anda terkait akumulasi hak Sisa Hasil Usaha (SHU)' 
+                : 'Pencatatan Handover Harian Kasir Utama ke Bendahara Koperasi'}
+            </p>
           </div>
           
           <div className="flex flex-wrap items-center gap-3">
@@ -403,92 +495,204 @@ export default function App() {
             totalTransactionsCount={transactions.length} 
             userRole={userRole}
             employeeBelanjaStats={employeeBelanjaStats}
-          />
-
-          {/* TWO COLUMN INTERACTION LAYER */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            {/* FORM WRAPPER COLUMN */}
-            <div className="lg:col-span-1 space-y-6">
-              <TransactionForm 
-                onAddTransaction={handleAddTransaction} 
-                userRole={userRole} 
-                cashierName={cashierName}
-              />
+            memberStats={memberStats}
+          />          {/* TWO COLUMN INTERACTION LAYER */}
+          {userRole !== 'anggota' ? (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               
-              {userRole === 'admin' && <CsvImporter onImportSuccess={handleImportCSV} />}
-              
-              {/* Syariah Note info footer block */}
-              <div className="p-4 bg-amber-500/5 border border-amber-500/10 rounded-2xl flex gap-3 text-slate-600">
-                <Info className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-                <div className="text-xs leading-relaxed">
-                  <p className="font-bold text-slate-800 mb-1">Serah Terima Kasir ke Bendahara</p>
-                  <p>
-                    Semua rekaman serah terima dana kasir harian langsung disimpan ke memori browser lokal. Gunakan tombol <strong>Backup</strong> di kanan atas untuk mengarsipkan buku ke komputer Anda secara berkala.
-                  </p>
+              {/* FORM WRAPPER COLUMN */}
+              <div className="lg:col-span-1 space-y-6">
+                <TransactionForm 
+                  onAddTransaction={handleAddTransaction} 
+                  userRole={userRole} 
+                  cashierName={cashierName}
+                />
+                
+                {userRole === 'admin' && <CsvImporter onImportSuccess={handleImportCSV} />}
+                
+                {/* Syariah Note info footer block */}
+                <div className="p-4 bg-amber-500/5 border border-amber-500/10 rounded-2xl flex gap-3 text-slate-600">
+                  <Info className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="text-xs leading-relaxed">
+                    <p className="font-bold text-slate-800 mb-1">Serah Terima Kasir ke Bendahara</p>
+                    <p>
+                      Semua rekaman serah terima dana kasir harian langsung disimpan ke memori browser lokal. Gunakan tombol <strong>Backup</strong> di kanan atas untuk mengarsipkan buku ke komputer Anda secara berkala.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* CHARTS GRAPH & DATA VISUALIZER COLUMN / SOP FOR CASHER */}
-            {userRole === 'admin' ? (
-              <div className="lg:col-span-2 space-y-6">
-                <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4 shadow-xs">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                    <div>
-                      <h3 className="font-bold text-sm sm:text-base text-slate-800 font-sans tracking-tight">Penyebaran Setoran & Alokasi Kas</h3>
-                      <p className="text-slate-400 text-xs mt-0.5">Rekap visual kategori setoran masuk dan pengeluaran bendahara minggu ini</p>
+              {/* CHARTS GRAPH & DATA VISUALIZER COLUMN / SOP FOR CASHER */}
+              {userRole === 'admin' ? (
+                <div className="lg:col-span-2 space-y-6">
+                  <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4 shadow-xs">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                      <div>
+                        <h3 className="font-bold text-sm sm:text-base text-slate-800 font-sans tracking-tight">Penyebaran Setoran & Alokasi Kas</h3>
+                        <p className="text-slate-400 text-xs mt-0.5">Rekap visual kategori setoran masuk dan pengeluaran bendahara minggu ini</p>
+                      </div>
+                      <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-[10px] font-bold text-emerald-800 rounded-lg border border-emerald-100">
+                        <Layers className="h-3.5 w-3.5" />
+                        Amanah & Presisi
+                      </span>
                     </div>
-                    <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-[10px] font-bold text-emerald-800 rounded-lg border border-emerald-100">
-                      <Layers className="h-3.5 w-3.5" />
-                      Amanah & Presisi
-                    </span>
+                    <VisualChart transactions={transactions} />
                   </div>
-                  <VisualChart transactions={transactions} />
                 </div>
-              </div>
-            ) : (
-              <div className="lg:col-span-2 space-y-6">
-                <div className="bg-gradient-to-br from-amber-500/5 to-amber-500/10 rounded-2xl border border-amber-200 p-6 space-y-5 shadow-xs relative overflow-hidden">
-                  <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                    <Building className="w-48 h-48 text-amber-900" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-sm sm:text-lg text-amber-950 font-sans tracking-tight">Standar Operasional (SOP) Pencatatan Kasir</h3>
-                    <p className="text-amber-800 text-xs mt-1">Panduan amanah pencatatan Belanja Harian Karyawan & Anggota</p>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                    <div className="bg-white/80 backdrop-blur-xs p-4 rounded-xl border border-amber-200/50 leading-relaxed shadow-3xs">
-                      <p className="font-bold text-amber-900 mb-1">1. Keakuratan Data SHU</p>
-                      <p className="text-slate-600 font-medium">Setiap mencatat belanja harian, pastikan memilih nama Anggota yang melakukan pembelanjaan dengan benar. Data ini akan langsung diakumulasi untuk laporan Sisa Hasil Usaha (SHU) koperasi.</p>
+              ) : (
+                <div className="lg:col-span-2 space-y-6">
+                  <div className="bg-gradient-to-br from-amber-500/5 to-amber-500/10 rounded-2xl border border-amber-200 p-6 space-y-5 shadow-xs relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                      <Building className="w-48 h-48 text-amber-900" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-sm sm:text-lg text-amber-950 font-sans tracking-tight">Standar Operasional (SOP) Pencatatan Kasir</h3>
+                      <p className="text-amber-800 text-xs mt-1">Panduan amanah pencatatan Belanja Harian Karyawan & Anggota</p>
                     </div>
                     
-                    <div className="bg-white/80 backdrop-blur-xs p-4 rounded-xl border border-amber-200/50 leading-relaxed shadow-3xs">
-                      <p className="font-bold text-amber-900 mb-1">2. Bukti Fisik / Nota</p>
-                      <p className="text-slate-600 font-medium">Unggah foto nota atau kwitansi fisik jika ada. Foto nota tidak wajib ada ketika menyimpan, namun sangat direkomendasikan untuk mempermudah proses audit oleh Bendahara Koperasi.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                      <div className="bg-white/80 backdrop-blur-xs p-4 rounded-xl border border-amber-200/50 leading-relaxed shadow-3xs">
+                        <p className="font-bold text-amber-900 mb-1">1. Keakuratan Data SHU</p>
+                        <p className="text-slate-600 font-medium">Setiap mencatat belanja harian, pastikan memilih nama Anggota yang melakukan pembelanjaan dengan benar. Data ini akan langsung diakumulasi untuk laporan Sisa Hasil Usaha (SHU) koperasi.</p>
+                      </div>
+                      
+                      <div className="bg-white/80 backdrop-blur-xs p-4 rounded-xl border border-amber-200/50 leading-relaxed shadow-3xs">
+                        <p className="font-bold text-amber-900 mb-1">2. Bukti Fisik / Nota</p>
+                        <p className="text-slate-600 font-medium">Unggah foto nota atau kwitansi fisik jika ada. Foto nota tidak wajib ada ketika menyimpan, namun sangat direkomendasikan untuk mempermudah proses audit oleh Bendahara Koperasi.</p>
+                      </div>
+
+                      <div className="bg-white/80 backdrop-blur-xs p-4 rounded-xl border border-amber-200/50 leading-relaxed shadow-3xs">
+                        <p className="font-bold text-amber-900 mb-1">3. Buku Kas Berbeda</p>
+                        <p className="text-slate-600 font-medium font-sans">Keuangan belanja harian anggota ini dipisahkan secara sistem dari kas utama (penyetoran harian kasir toko). Kasir Ikhwan & Akhwat berdiri di atas kas operasionalnya masing-masing.</p>
+                      </div>
+
+                      <div className="bg-white/80 backdrop-blur-xs p-4 rounded-xl border border-amber-200/50 leading-relaxed shadow-3xs">
+                        <p className="font-bold text-amber-900 mb-1">4. Verifikasi & Audit</p>
+                        <p className="text-slate-600 font-medium">Admin/Bendahara Utama secara berkala akan mendownload rekap sensus belanja anggota ini untuk diverifikasi silang dengan ketersediaan barang di brankas utama.</p>
+                      </div>
                     </div>
 
-                    <div className="bg-white/80 backdrop-blur-xs p-4 rounded-xl border border-amber-200/50 leading-relaxed shadow-3xs">
-                      <p className="font-bold text-amber-900 mb-1">3. Buku Kas Berbeda</p>
-                      <p className="text-slate-600 font-medium font-sans">Keuangan belanja harian anggota ini dipisahkan secara sistem dari kas utama (penyetoran harian kasir toko). Kasir Ikhwan & Akhwat berdiri di atas kas operasionalnya masing-masing.</p>
+                    <div className="bg-amber-950 text-amber-100 p-4 rounded-xl text-[11px] leading-relaxed font-semibold">
+                      <span className="font-extrabold uppercase mr-1.5 text-amber-400">Pesan Syariah:</span>
+                      "Wahai orang-orang yang beriman, penuhilah janji-janji (akad-akad) itu..." (QS. Al-Ma'idah: 1). Jalankan tugas pencatatan secara amanah, jujur, transparan, dan penuh ketelitian demi kemaslahatan bersama.
                     </div>
-
-                    <div className="bg-white/80 backdrop-blur-xs p-4 rounded-xl border border-amber-200/50 leading-relaxed shadow-3xs">
-                      <p className="font-bold text-amber-900 mb-1">4. Verifikasi & Audit</p>
-                      <p className="text-slate-600 font-medium">Admin/Bendahara Utama secara berkala akan mendownload rekap sensus belanja anggota ini untuk diverifikasi silang dengan ketersediaan barang di brankas utama.</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-amber-950 text-amber-100 p-4 rounded-xl text-[11px] leading-relaxed font-semibold">
-                    <span className="font-extrabold uppercase mr-1.5 text-amber-400">Pesan Syariah:</span>
-                    "Wahai orang-orang yang beriman, penuhilah janji-janji (akad-akad) itu..." (QS. Al-Ma'idah: 1). Jalankan tugas pencatatan secara amanah, jujur, transparan, dan penuh ketelitian demi kemaslahatan bersama.
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-          </div>
+            </div>
+          ) : (
+            /* ANGGOTA EXCLUSIVE PROFILE & INTERACTIVE GANTI SANDI FORM */
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 font-sans">
+              {/* Profile card & information */}
+              <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-200 p-6 flex flex-col justify-between shadow-xs relative overflow-hidden">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="font-extrabold text-[10px] uppercase text-slate-400 tracking-wider">Profil Anggota Koperasi</h3>
+                    <p className="text-xl font-black text-slate-800 mt-1">{cashierName}</p>
+                    <span className="inline-flex mt-1.5 px-2 py-0.5 bg-rose-50 text-rose-800 border border-rose-200 rounded-md text-[9px] font-black uppercase tracking-wide">
+                      Mutasi Terverifikasi
+                    </span>
+                  </div>
+
+                  <div className="border-t border-slate-100 pt-3 space-y-2.5 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-slate-450 font-medium">No. Identitas / ID:</span>
+                      <span className="font-extrabold text-slate-705">12345678</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-450 font-medium">Status Hak SHU:</span>
+                      <span className="font-extrabold text-emerald-700">Aktif Berjalan</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-450 font-medium">Buku Kas Belanja:</span>
+                      <span className="font-extrabold text-slate-705">Belanja Anggota</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl text-[11px] leading-relaxed font-semibold text-slate-500">
+                  <span className="text-emerald-800 font-bold uppercase block mb-1">Catatan Keanggotaan</span>
+                  Tampilan data di bawah murni bersifat <strong className="text-emerald-800">Lihat Saja (Read-Only)</strong>. Mutasi belanja diisi oleh petugas kasir Ikhwan / Akhwat di kasir harian koperasi. Hubungi pengelola koperasi jika ada ketidaksesuaian data.
+                </div>
+              </div>
+
+              {/* Password update widget */}
+              <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-xs relative">
+                <div>
+                  <h3 className="font-bold text-sm sm:text-base text-slate-800 font-sans tracking-tight">Ganti Sandi Akun Anggota</h3>
+                  <p className="text-slate-400 text-xs mt-0.5">Amankan sesi login anggota Anda dengan memperbarui sandi default Anda</p>
+                </div>
+
+                <form onSubmit={handleMemberChangePassword} className="mt-5 space-y-4 max-w-md">
+                  {passwordError && (
+                    <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-[11px] font-bold rounded-xl">
+                      {passwordError}
+                    </div>
+                  )}
+
+                  {passwordSuccess && (
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold rounded-xl">
+                      {passwordSuccess}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block">Sandi Lama Sekarang</label>
+                      <input
+                        type="password"
+                        value={oldPassword}
+                        onChange={(e) => {
+                          setOldPassword(e.target.value);
+                          setPasswordError('');
+                          setPasswordSuccess('');
+                        }}
+                        placeholder="contoh: 12345678"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-hidden focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider block">Sandi Baru (Min 8 Karakter)</label>
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => {
+                          setNewPassword(e.target.value);
+                          setPasswordError('');
+                          setPasswordSuccess('');
+                        }}
+                        placeholder="Sandi baru"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-hidden focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-extrabold text-slate-405 uppercase tracking-wider block">Konfirmasi Sandi Baru</label>
+                    <input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => {
+                        setConfirmPassword(e.target.value);
+                        setPasswordError('');
+                        setPasswordSuccess('');
+                      }}
+                      placeholder="Ulangi sandi baru"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-hidden focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="px-4 py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-3xs"
+                  >
+                    Simpan Perubahan Sandi
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
 
           {/* TABULAR BOOKS OF LEDGER */}
           <TransactionTable 

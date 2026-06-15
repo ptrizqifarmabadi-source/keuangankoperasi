@@ -26,7 +26,7 @@ interface TransactionTableProps {
   transactions: Transaction[];
   onDeleteTransaction: (id: string) => void;
   onResetToSample: () => void;
-  userRole: 'admin' | 'kasir';
+  userRole: 'admin' | 'kasir' | 'anggota';
   cashierName?: string;
 }
 
@@ -41,7 +41,7 @@ export function TransactionTable({
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | TransactionType>('all');
   const [categoryTab, setCategoryTab] = useState<'all' | 'setoran' | 'belanja_karyawan'>(
-    userRole === 'kasir' ? 'belanja_karyawan' : 'all'
+    userRole === 'kasir' || userRole === 'anggota' ? 'belanja_karyawan' : 'all'
   );
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('all');
   const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc'>('date-desc');
@@ -335,38 +335,40 @@ export function TransactionTable({
       )}
 
       {/* Interactive Mode Toggles representing target SHU vs General Ledger */}
-      <div className="flex border-b border-slate-100 mb-6 font-sans">
-        <button
-          type="button"
-          onClick={() => {
-            setActiveViewTab('records');
-            setCurrentPage(1);
-          }}
-          className={`py-2.5 px-5 -mb-px text-xs font-bold transition-all cursor-pointer flex items-center gap-2 uppercase tracking-wider border-b-2 ${
-            activeViewTab === 'records'
-              ? 'border-emerald-700 text-emerald-800 font-extrabold'
-              : 'border-transparent text-slate-400 hover:text-slate-600'
-          }`}
-        >
-          <BookOpen className="h-3.5 w-3.5" />
-          <span>Buku Jurnal Pencatatan</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setActiveViewTab('shu');
-            setCurrentPage(1);
-          }}
-          className={`py-2.5 px-5 -mb-px text-xs font-bold transition-all cursor-pointer flex items-center gap-2 uppercase tracking-wider border-b-2 ${
-            activeViewTab === 'shu'
-              ? 'border-amber-600 text-amber-600 font-extrabold'
-              : 'border-transparent text-slate-400 hover:text-slate-600'
-          }`}
-        >
-          <ShoppingBag className="h-3.5 w-3.5" />
-          <span>Sensus Belanja SHU ({MEMBER_LIST.length} Anggota)</span>
-        </button>
-      </div>
+      {userRole !== 'anggota' && (
+        <div className="flex border-b border-slate-100 mb-6 font-sans">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveViewTab('records');
+              setCurrentPage(1);
+            }}
+            className={`py-2.5 px-5 -mb-px text-xs font-bold transition-all cursor-pointer flex items-center gap-2 uppercase tracking-wider border-b-2 ${
+              activeViewTab === 'records'
+                ? 'border-emerald-700 text-emerald-800 font-extrabold'
+                : 'border-transparent text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            <span>Buku Jurnal Pencatatan</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveViewTab('shu');
+              setCurrentPage(1);
+            }}
+            className={`py-2.5 px-5 -mb-px text-xs font-bold transition-all cursor-pointer flex items-center gap-2 uppercase tracking-wider border-b-2 ${
+              activeViewTab === 'shu'
+                ? 'border-amber-600 text-amber-600 font-extrabold'
+                : 'border-transparent text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <ShoppingBag className="h-3.5 w-3.5" />
+            <span>Sensus Belanja SHU ({MEMBER_LIST.length} Anggota)</span>
+          </button>
+        </div>
+      )}
 
       {/* Control Rails / Filters */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6 bg-slate-50/80 p-4 rounded-xl border border-slate-200/50">
@@ -456,7 +458,7 @@ export function TransactionTable({
                 <th className="py-3 px-3">Kategori & Bukti</th>
                 <th className="py-3 px-3">Deskripsi / Detail Handover</th>
                 <th className="py-3 px-3 text-right font-bold">Nominal</th>
-                <th className="py-3 px-4 rounded-r-xl w-16 text-center">Aksi</th>
+                {userRole !== 'anggota' && <th className="py-3 px-4 rounded-r-xl w-16 text-center">Aksi</th>}
               </tr>
             ) : (
               <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase tracking-wider bg-slate-100/50">
@@ -465,7 +467,7 @@ export function TransactionTable({
                 <th className="py-3 px-3">Status Partisipasi</th>
                 <th className="py-3 px-3">Frekuensi Belanja</th>
                 <th className="py-3 px-3 text-right font-bold">Total Akumulasi Belanja</th>
-                <th className="py-3 px-4 rounded-r-xl w-16 text-center">Aksi</th>
+                {userRole !== 'anggota' && <th className="py-3 px-4 rounded-r-xl w-16 text-center">Aksi</th>}
               </tr>
             )}
           </thead>
@@ -548,16 +550,18 @@ export function TransactionTable({
                       </td>
 
                       {/* Actions panel */}
-                      <td className="py-3 px-4 text-center">
-                        <button
-                          onClick={() => confirmDelete(t.id, t.description)}
-                          disabled={userRole === 'kasir' && t.recordedBy !== cashierName && cashierName !== ''}
-                          className="p-1 text-slate-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition-all cursor-pointer inline-flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
-                          title={userRole === 'kasir' && t.recordedBy !== cashierName ? "Hanya bisa menghapus inputan Anda sendiri" : "Hapus Catatan"}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </td>
+                      {userRole !== 'anggota' && (
+                        <td className="py-3 px-4 text-center">
+                          <button
+                            onClick={() => confirmDelete(t.id, t.description)}
+                            disabled={userRole === 'kasir' && t.recordedBy !== cashierName && cashierName !== ''}
+                            className="p-1 text-slate-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition-all cursor-pointer inline-flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
+                            title={userRole === 'kasir' && t.recordedBy !== cashierName ? "Hanya bisa menghapus inputan Anda sendiri" : "Hapus Catatan"}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </td>
+                      )}
                     </motion.tr>
                   ))
                 ) : (
@@ -619,9 +623,11 @@ export function TransactionTable({
                       </td>
 
                       {/* Empty action column */}
-                      <td className="py-3 px-4 text-center text-slate-300">
-                        -
-                      </td>
+                      {userRole !== 'anggota' && (
+                        <td className="py-3 px-4 text-center text-slate-300">
+                          -
+                        </td>
+                      )}
                     </tr>
                   ))
                 ) : (
