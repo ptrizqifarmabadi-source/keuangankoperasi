@@ -26,19 +26,35 @@ import {
 import { motion } from 'motion/react';
 
 export default function App() {
-  // Admin Login state
+  // Session & Authentication states
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
-    return localStorage.getItem('setoran_kasir_cendekia_auth_token') === 'true';
+    const token = localStorage.getItem('setoran_kasir_cendekia_auth_token');
+    return token === 'admin' || token === 'kasir';
   });
 
-  const handleLoginSuccess = () => {
-    localStorage.setItem('setoran_kasir_cendekia_auth_token', 'true');
+  const [userRole, setUserRole] = useState<'admin' | 'kasir'>(() => {
+    const token = localStorage.getItem('setoran_kasir_cendekia_auth_token');
+    return (token === 'admin' || token === 'kasir') ? token as 'admin' | 'kasir' : 'admin';
+  });
+
+  const [cashierName, setCashierName] = useState<string>(() => {
+    return localStorage.getItem('setoran_kasir_cendekia_cashier_name') || '';
+  });
+
+  const handleLoginSuccess = (role: 'admin' | 'kasir', name: string) => {
+    localStorage.setItem('setoran_kasir_cendekia_auth_token', role);
+    localStorage.setItem('setoran_kasir_cendekia_cashier_name', name);
     setIsLoggedIn(true);
+    setUserRole(role);
+    setCashierName(name);
   };
 
   const handleLogout = () => {
     localStorage.removeItem('setoran_kasir_cendekia_auth_token');
+    localStorage.removeItem('setoran_kasir_cendekia_cashier_name');
     setIsLoggedIn(false);
+    setUserRole('admin');
+    setCashierName('');
   };
 
   // Main transactions database state
@@ -75,7 +91,7 @@ export default function App() {
     }
   }, [transactions]);
 
-  // Real-time statistical engine
+  // Real-time statistical engine for KAS UTAMA (Excluding employee/member shopping)
   const stats: SummaryStats = useMemo(() => {
     let totalIncome = 0;
     let totalExpense = 0;
@@ -91,6 +107,11 @@ export default function App() {
     const now = new Date();
 
     transactions.forEach((t) => {
+      // Keuangan data belanja harian anggota tidak tergabung ke kas utama tapi berbeda buat sendiri!
+      if (t.trxCategory === 'belanja_karyawan') {
+        return;
+      }
+
       if (t.type === 'masuk') {
         totalIncome += t.amount;
         if (isWithinCurrentWeek(t.date, now)) {
@@ -128,6 +149,36 @@ export default function App() {
       monthlyIncome,
       todayIncome,
       todayExpense,
+    };
+  }, [transactions]);
+
+  // Real-time member shopping (SHU) statistical engine
+  const employeeBelanjaStats = useMemo(() => {
+    let totalSpent = 0;
+    let transactionCount = 0;
+    let todaySpent = 0;
+    const activeNamesSet = new Set<string>();
+
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    transactions.forEach((t) => {
+      if (t.trxCategory === 'belanja_karyawan') {
+        totalSpent += t.amount;
+        transactionCount += 1;
+        if (t.date === todayStr) {
+          todaySpent += t.amount;
+        }
+        if (t.anggotaName) {
+          activeNamesSet.add(t.anggotaName);
+        }
+      }
+    });
+
+    return {
+      totalSpent,
+      transactionCount,
+      todaySpent,
+      activeMembersCount: activeNamesSet.size
     };
   }, [transactions]);
 
@@ -267,17 +318,24 @@ export default function App() {
           </div>
         </nav>
 
-        {/* Active Admin Profile Card */}
+        {/* Active User Card & Roles Display */}
         <div className="p-6 border-t border-emerald-800 bg-emerald-950/20 space-y-3">
           <div className="bg-emerald-800/60 border border-emerald-700/20 rounded-xl p-4">
-            <p className="text-[10px] uppercase tracking-wider text-emerald-400 mb-1 font-semibold">Petugas Kasir/Bendahara</p>
-            <p className="text-xs font-bold text-slate-100 truncate mb-1" title="ptrizqifarmabadi@gmail.com">
-              ptrizqifarmabadi@gmail.com
+            <p className="text-[10px] uppercase tracking-wider text-emerald-400 mb-1 font-bold">Petugas Aktif</p>
+            <p className="text-xs font-bold text-slate-100 truncate mb-1" title={userRole === 'admin' ? 'Administrator Utama' : cashierName}>
+              {userRole === 'admin' ? 'Koperasi Cendekia' : cashierName}
             </p>
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-emerald-500/20 text-[9px] font-bold text-emerald-300 rounded-md border border-emerald-500/20">
-              <span className="h-1 w-1 rounded-full bg-emerald-400 animate-pulse" />
-              Aktif (Admin)
-            </span>
+            {userRole === 'admin' ? (
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-emerald-500/20 text-[9px] font-bold text-emerald-300 rounded-md border border-emerald-500/20">
+                <span className="h-1 w-1 rounded-full bg-emerald-400 animate-pulse" />
+                Sesi Admin
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-amber-500/20 text-[9px] font-extrabold text-amber-300 rounded-md border border-amber-500/25">
+                <span className="h-1 w-1 rounded-full bg-amber-400 animate-pulse" />
+                Sesi Kasir
+              </span>
+            )}
           </div>
 
           <button
@@ -340,16 +398,25 @@ export default function App() {
         <div className="p-6 sm:p-8 flex-1 space-y-6">
           
           {/* STATS PREVIEW GRIDS */}
-          <DashboardStats stats={stats} totalTransactionsCount={transactions.length} />
+          <DashboardStats 
+            stats={stats} 
+            totalTransactionsCount={transactions.length} 
+            userRole={userRole}
+            employeeBelanjaStats={employeeBelanjaStats}
+          />
 
           {/* TWO COLUMN INTERACTION LAYER */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             {/* FORM WRAPPER COLUMN */}
             <div className="lg:col-span-1 space-y-6">
-              <TransactionForm onAddTransaction={handleAddTransaction} />
+              <TransactionForm 
+                onAddTransaction={handleAddTransaction} 
+                userRole={userRole} 
+                cashierName={cashierName}
+              />
               
-              <CsvImporter onImportSuccess={handleImportCSV} />
+              {userRole === 'admin' && <CsvImporter onImportSuccess={handleImportCSV} />}
               
               {/* Syariah Note info footer block */}
               <div className="p-4 bg-amber-500/5 border border-amber-500/10 rounded-2xl flex gap-3 text-slate-600">
@@ -363,22 +430,63 @@ export default function App() {
               </div>
             </div>
 
-            {/* CHARTS GRAPH & DATA VISUALIZER COLUMN */}
-            <div className="lg:col-span-2 space-y-6">
-              <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4 shadow-xs">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                  <div>
-                    <h3 className="font-bold text-sm sm:text-base text-slate-800 font-sans tracking-tight">Penyebaran Setoran & Alokasi Kas</h3>
-                    <p className="text-slate-400 text-xs mt-0.5">Rekap visual kategori setoran masuk dan pengeluaran bendahara minggu ini</p>
+            {/* CHARTS GRAPH & DATA VISUALIZER COLUMN / SOP FOR CASHER */}
+            {userRole === 'admin' ? (
+              <div className="lg:col-span-2 space-y-6">
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4 shadow-xs">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div>
+                      <h3 className="font-bold text-sm sm:text-base text-slate-800 font-sans tracking-tight">Penyebaran Setoran & Alokasi Kas</h3>
+                      <p className="text-slate-400 text-xs mt-0.5">Rekap visual kategori setoran masuk dan pengeluaran bendahara minggu ini</p>
+                    </div>
+                    <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-[10px] font-bold text-emerald-800 rounded-lg border border-emerald-100">
+                      <Layers className="h-3.5 w-3.5" />
+                      Amanah & Presisi
+                    </span>
                   </div>
-                  <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-[10px] font-bold text-emerald-800 rounded-lg border border-emerald-100">
-                    <Layers className="h-3.5 w-3.5" />
-                    Amanah & Presisi
-                  </span>
+                  <VisualChart transactions={transactions} />
                 </div>
-                <VisualChart transactions={transactions} />
               </div>
-            </div>
+            ) : (
+              <div className="lg:col-span-2 space-y-6">
+                <div className="bg-gradient-to-br from-amber-500/5 to-amber-500/10 rounded-2xl border border-amber-200 p-6 space-y-5 shadow-xs relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                    <Building className="w-48 h-48 text-amber-900" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm sm:text-lg text-amber-950 font-sans tracking-tight">Standar Operasional (SOP) Pencatatan Kasir</h3>
+                    <p className="text-amber-800 text-xs mt-1">Panduan amanah pencatatan Belanja Harian Karyawan & Anggota</p>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    <div className="bg-white/80 backdrop-blur-xs p-4 rounded-xl border border-amber-200/50 leading-relaxed shadow-3xs">
+                      <p className="font-bold text-amber-900 mb-1">1. Keakuratan Data SHU</p>
+                      <p className="text-slate-600 font-medium">Setiap mencatat belanja harian, pastikan memilih nama Anggota yang melakukan pembelanjaan dengan benar. Data ini akan langsung diakumulasi untuk laporan Sisa Hasil Usaha (SHU) koperasi.</p>
+                    </div>
+                    
+                    <div className="bg-white/80 backdrop-blur-xs p-4 rounded-xl border border-amber-200/50 leading-relaxed shadow-3xs">
+                      <p className="font-bold text-amber-900 mb-1">2. Bukti Fisik / Nota</p>
+                      <p className="text-slate-600 font-medium">Unggah foto nota atau kwitansi fisik jika ada. Foto nota tidak wajib ada ketika menyimpan, namun sangat direkomendasikan untuk mempermudah proses audit oleh Bendahara Koperasi.</p>
+                    </div>
+
+                    <div className="bg-white/80 backdrop-blur-xs p-4 rounded-xl border border-amber-200/50 leading-relaxed shadow-3xs">
+                      <p className="font-bold text-amber-900 mb-1">3. Buku Kas Berbeda</p>
+                      <p className="text-slate-600 font-medium font-sans">Keuangan belanja harian anggota ini dipisahkan secara sistem dari kas utama (penyetoran harian kasir toko). Kasir Ikhwan & Akhwat berdiri di atas kas operasionalnya masing-masing.</p>
+                    </div>
+
+                    <div className="bg-white/80 backdrop-blur-xs p-4 rounded-xl border border-amber-200/50 leading-relaxed shadow-3xs">
+                      <p className="font-bold text-amber-900 mb-1">4. Verifikasi & Audit</p>
+                      <p className="text-slate-600 font-medium">Admin/Bendahara Utama secara berkala akan mendownload rekap sensus belanja anggota ini untuk diverifikasi silang dengan ketersediaan barang di brankas utama.</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-amber-950 text-amber-100 p-4 rounded-xl text-[11px] leading-relaxed font-semibold">
+                    <span className="font-extrabold uppercase mr-1.5 text-amber-400">Pesan Syariah:</span>
+                    "Wahai orang-orang yang beriman, penuhilah janji-janji (akad-akad) itu..." (QS. Al-Ma'idah: 1). Jalankan tugas pencatatan secara amanah, jujur, transparan, dan penuh ketelitian demi kemaslahatan bersama.
+                  </div>
+                </div>
+              </div>
+            )}
 
           </div>
 
@@ -387,6 +495,8 @@ export default function App() {
             transactions={transactions} 
             onDeleteTransaction={handleDeleteTransaction}
             onResetToSample={handleResetToSample}
+            userRole={userRole}
+            cashierName={cashierName}
           />
 
         </div>
