@@ -48,7 +48,15 @@ export default function App() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          // Robust cleanup of the exact requested transaction: '2026-05-31', sisa bulan juli
+          return parsed.filter((t) => {
+            const isMatch = 
+              t.date === '2026-05-31' && 
+              (t.description?.toLowerCase().includes('sisa bulan juli') || 
+               t.description?.toLowerCase().includes('juli') ||
+               t.amount === 307192);
+            return !isMatch;
+          });
         }
       }
     } catch (e) {
