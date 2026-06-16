@@ -16,7 +16,7 @@ service cloud.firestore {
     }
 
     function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string && id.size() > 0 && id.size() <= 256;
     }
 
     function isValidTransaction(data) {
@@ -28,7 +28,7 @@ service cloud.firestore {
         && (data.amount is int || data.amount is float)
         && data.category is string
         && data.description is string
-        && data.timestamp is int
+        && (data.timestamp is int || data.timestamp is float)
         && (!data.keys().contains('recordedBy') || data.recordedBy is string)
         && (!data.keys().contains('photo') || data.photo is string)
         && (!data.keys().contains('trxCategory') || (data.trxCategory == 'setoran' || data.trxCategory == 'belanja_karyawan'))
